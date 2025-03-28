@@ -1,0 +1,621 @@
+--TABLOLARI OLUŞTURALIM:
+CREATE DATABASE pizza_runner;
+
+CREATE TABLE runners (
+  "runner_id" INTEGER,
+  "registration_date" DATE
+);
+
+INSERT INTO runners
+  ("runner_id", "registration_date")
+VALUES
+  (1, '2021-01-01'),
+  (2, '2021-01-03'),
+  (3, '2021-01-08'),
+  (4, '2021-01-15');
+
+ CREATE TABLE customer_orders (
+  "order_id" INTEGER,
+  "customer_id" INTEGER,
+  "pizza_id" INTEGER,
+  "exclusions" VARCHAR(4),
+  "extras" VARCHAR(4),
+  "order_time" TIMESTAMP
+);
+
+INSERT INTO customer_orders
+  ("order_id", "customer_id", "pizza_id", "exclusions", "extras", "order_time")
+VALUES
+  ('1', '101', '1', '', '', '2020-01-01 18:05:02'),
+  ('2', '101', '1', '', '', '2020-01-01 19:00:52'),
+  ('3', '102', '1', '', '', '2020-01-02 23:51:23'),
+  ('3', '102', '2', '', NULL, '2020-01-02 23:51:23'),
+  ('4', '103', '1', '4', '', '2020-01-04 13:23:46'),
+  ('4', '103', '1', '4', '', '2020-01-04 13:23:46'),
+  ('4', '103', '2', '4', '', '2020-01-04 13:23:46'),
+  ('5', '104', '1', 'null', '1', '2020-01-08 21:00:29'),
+  ('6', '101', '2', 'null', 'null', '2020-01-08 21:03:13'),
+  ('7', '105', '2', 'null', '1', '2020-01-08 21:20:29'),
+  ('8', '102', '1', 'null', 'null', '2020-01-09 23:54:33'),
+  ('9', '103', '1', '4', '1, 5', '2020-01-10 11:22:59'),
+  ('10', '104', '1', 'null', 'null', '2020-01-11 18:34:49'),
+  ('10', '104', '1', '2, 6', '1, 4', '2020-01-11 18:34:49');
+  
+CREATE TABLE runner_orders (
+  "order_id" INTEGER,
+  "runner_id" INTEGER,
+  "pickup_time" VARCHAR(19),
+  "distance" VARCHAR(7),
+  "duration" VARCHAR(10),
+  "cancellation" VARCHAR(23)
+);
+
+INSERT INTO runner_orders
+  ("order_id", "runner_id", "pickup_time", "distance", "duration", "cancellation")
+VALUES
+  ('1', '1', '2020-01-01 18:15:34', '20km', '32 minutes', ''),
+  ('2', '1', '2020-01-01 19:10:54', '20km', '27 minutes', ''),
+  ('3', '1', '2020-01-03 00:12:37', '13.4km', '20 mins', NULL),
+  ('4', '2', '2020-01-04 13:53:03', '23.4', '40', NULL),
+  ('5', '3', '2020-01-08 21:10:57', '10', '15', NULL),
+  ('6', '3', 'null', 'null', 'null', 'Restaurant Cancellation'),
+  ('7', '2', '2020-01-08 21:30:45', '25km', '25mins', 'null'),
+  ('8', '2', '2020-01-10 00:15:02', '23.4 km', '15 minute', 'null'),
+  ('9', '2', 'null', 'null', 'null', 'Customer Cancellation'),
+  ('10', '1', '2020-01-11 18:50:20', '10km', '10minutes', 'null');
+  
+CREATE TABLE pizza_names (
+  "pizza_id" INTEGER,
+  "pizza_name" TEXT
+);
+INSERT INTO pizza_names
+  ("pizza_id", "pizza_name")
+VALUES
+  (1, 'Meatlovers'),
+  (2, 'Vegetarian');
+
+CREATE TABLE pizza_recipes (
+  "pizza_id" INTEGER,
+  "toppings" TEXT
+);
+INSERT INTO pizza_recipes
+  ("pizza_id", "toppings")
+VALUES
+  (1, '1, 2, 3, 4, 5, 6, 8, 10'),
+  (2, '4, 6, 7, 9, 11, 12');
+  
+CREATE TABLE pizza_toppings (
+  "topping_id" INTEGER,
+  "topping_name" TEXT
+);
+INSERT INTO pizza_toppings
+  ("topping_id", "topping_name")
+VALUES
+  (1, 'Bacon'),
+  (2, 'BBQ Sauce'),
+  (3, 'Beef'),
+  (4, 'Cheese'),
+  (5, 'Chicken'),
+  (6, 'Mushrooms'),
+  (7, 'Onions'),
+  (8, 'Pepperoni'),
+  (9, 'Peppers'),
+  (10, 'Salami'),
+  (11, 'Tomatoes'),
+  (12, 'Tomato Sauce');
+
+ --VERİ TEMİZLİĞİ YAPALIM (BOŞ KALAN ALANLAR VE YAZIYLA NULL YAZILAN DEĞERLER İÇİN):
+UPDATE customer_orders
+ SET exclusions = CASE 
+ 						WHEN exclusions = 'null' OR exclusions = '' THEN NULL 
+ 						ELSE exclusions 
+ 				END,
+		extras = CASE 
+ 	 				WHEN extras = 'null' OR extras = '' THEN NULL 
+ 	 				ELSE extras 
+ 	 		END;
+
+UPDATE runner_orders 
+SET pickup_time = CASE 
+						WHEN pickup_time = 'null' THEN NULL 
+						ELSE pickup_time 
+				END,
+distance = CASE 
+	WHEN distance = 'null' THEN NULL 
+	WHEN distance LIKE '%km' THEN trim(distance, 'km') --km ifadelerini sildirtiyoruz
+	ELSE distance 
+END,
+duration = CASE 
+	WHEN duration = 'null' THEN NULL 
+	WHEN duration LIKE '%min%' THEN trim(duration, 'minutes') 
+	ELSE duration 
+END,
+cancellation = CASE 
+						WHEN cancellation = 'null' OR cancellation = '' THEN NULL 
+						ELSE cancellation 
+				END;
+
+--VERİ TİPLERİNİ DÜZELTELİM:
+ALTER TABLE runner_orders 
+ALTER COLUMN pickup_time --pickup_time VARCHAR(19) olan türünü timestamp yapıyoruz
+TYPE timestamp
+USING to_timestamp(pickup_time, 'YYYY-MM-DD HH24:MI');
+
+ALTER TABLE runner_orders 
+ALTER COLUMN distance
+TYPE float
+USING distance::double PRECISION;
+
+ALTER TABLE runner_orders 
+ALTER COLUMN duration
+TYPE int
+USING duration::integer
+
+ --QUESTIONS:  
+--A. Pizza Metrics:
+--1)How many pizzas were ordered?
+ 
+ SELECT count(order_id) AS count_pizza_orders
+ FROM customer_orders;
+
+ 
+--2)How many unique customer orders were made?
+ 
+ SELECT count(DISTINCT order_id) AS  unique_customer_orders
+ FROM customer_orders;
+ 
+--3)How many successful orders were delivered by each runner?
+--ÇÖZÜM1: 
+SELECT runner_id,
+ 	    count(pickup_time) AS  count_successful_orders
+FROM runner_orders
+GROUP BY runner_id
+ORDER BY 1;
+--ÇÖZÜM2:
+SELECT runner_id,
+	   count(order_id) AS  successful_orders
+FROM runner_orders
+WHERE distance IS NOT NULL 
+GROUP BY runner_id
+ORDER BY 1;
+ 
+--4)How many of each type of pizza was delivered?
+--4)Her bir pizza türünden kaç adet teslim edildi?
+ 
+SELECT pn.pizza_name,
+	   count(co.order_id) 
+FROM customer_orders AS co
+INNER JOIN pizza_names AS pn 
+	ON co.pizza_id = pn.pizza_id
+INNER JOIN runner_orders AS ro 
+	ON ro.order_id = co.order_id 
+WHERE ro.distance IS NOT NULL 
+GROUP BY pn.pizza_name;
+ 
+--5)How many Vegetarian and Meatlovers were ordered by each customer?
+--5)Her bir müşteri kaç adet Vejetaryen ve Meatlovers pizza sipariş etti?
+--ÇÖZÜM1:
+SELECT co.customer_id,
+	   pn.pizza_name,
+	   count(order_id) AS count_of_pizza 
+FROM customer_orders AS co
+INNER JOIN pizza_names AS pn 
+	ON co.pizza_id = pn.pizza_id
+GROUP BY 1,2
+ORDER BY 1;
+ 
+--ÇÖZÜM2:
+SELECT co.customer_id,
+	   sum(CASE
+	   		WHEN pizza_id = 1 THEN 1 ELSE 0 END) AS meat_lovers,
+	   sum(CASE
+		   	WHEN pizza_id = 2 THEN 1 ELSE 0 END) AS vegeterians  
+FROM customer_orders co 
+GROUP BY 1
+ORDER BY 1;
+
+--6)What was the maximum number of pizzas delivered in a single order?
+--6)Tek bir siparişte teslim edilen maksimum pizza sayısı kaçtır?
+WITH CTE AS (
+SELECT co.order_id,
+	   count(order_time) AS count_pizza_delivered
+FROM customer_orders AS co
+INNER JOIN runner_orders AS ro 
+	ON ro.order_id = co.order_id 
+WHERE ro.distance IS NOT NULL 
+GROUP BY co.order_id
+ORDER BY 1
+)
+SELECT max(count_pizza_delivered) AS max_pizza_delivered
+FROM CTE;
+
+--7)For each customer, how many delivered pizzas had at least 1 change and how many had no changes?
+--7)Her bir müşteri için kaç teslimatta en az 1 değişiklik yapıldı ve kaçında değişiklik yapılmadı?
+
+SELECT co.customer_id,
+	   sum(CASE 
+	   	WHEN co.exclusions IS NOT NULL OR co.extras IS NOT NULL THEN 1 ELSE 0 END) AS least_one_changed,
+	   sum(CASE 
+	   	WHEN co.exclusions IS NULL AND co.extras IS NULL THEN 1 ELSE 0 END) AS  not_changed
+FROM customer_orders AS co
+INNER JOIN runner_orders AS ro 
+	ON ro.order_id = co.order_id
+WHERE ro.cancellation IS NULL 
+GROUP BY 1
+ORDER BY 1;
+ 
+--8)How many pizzas were delivered that had both exclusions and extras?
+--ÇÖZÜM1: 
+SELECT co.order_id,
+	   sum(CASE 
+	   		WHEN co.exclusions IS NOT NULL AND co.extras IS NOT NULL THEN 1 ELSE 0 END) AS pizza_count_w_exclusions_extras
+FROM customer_orders co 
+JOIN runner_orders ro 
+	ON ro.order_id = co.order_id
+WHERE ro.cancellation IS NULL
+GROUP BY 1;
+
+--ÇÖZÜM2:
+SELECT count(*) AS pizza_count_w_exclusions_extras
+FROM customer_orders co 
+JOIN runner_orders ro 
+	ON ro.order_id = co.order_id
+WHERE ro.cancellation IS NULL AND co.exclusions IS NOT NULL AND co.extras IS NOT NULL;
+
+--9)What was the total volume of pizzas ordered for each hour of the day?
+--9)Günün her bir saati için toplam sipariş edilen pizza hacmi ne kadardı?
+--GÜNÜN HANGİ SAATİNDE SİPARİŞLER YOĞUNLAŞIYOR ONU BULMAMIZ İSTENİYOR. BUNUN İÇİN ORDER_TIME'DAN SİPARİŞ SAATLERİNİ ÇEKMELİYİZ.
+
+SELECT to_char(order_time, 'HH24') AS order_hour,
+	   count(pizza_id) 
+FROM customer_orders AS co 
+GROUP BY 1
+ORDER BY 1;
+
+--10)What was the volume of orders for each day of the week?
+--10)Haftanın her bir günü için sipariş hacmi ne kadardı?
+ 
+SELECT to_char(order_time, 'Day') AS order_day,
+	   count(pizza_id) 
+FROM customer_orders AS co 
+GROUP BY 1
+ORDER BY 1;
+
+ --B. Runner and Customer Experience:
+--1)How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
+--1)Her bir haftalık dönemde (örn. hafta 2021-01-01'de başlar) kaç kurye kaydoldu? 
+ 
+WITH runner_signed AS (
+SELECT runner_id, 
+       registration_date, 
+       DATE_PART('week',registration_date+4)  AS start_of_week --ISO standardına göre bir yılın 1. haftası, yılın ilk Perşembe gününü içerir.
+FROM runners
+)
+SELECT start_of_week,
+       COUNT(runner_id) 
+FROM runner_signed
+GROUP BY 1
+ORDER BY 1;
+
+--2)What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?
+--2)Her bir kuryenin siparişi almak için Pizza Runner merkezine varmasının ortalama süresi (dakika olarak) nedir? 
+ 
+SELECT runner_id,
+	   round(avg(date_part('min',ro.pickup_time - co.order_time))) AS avg_time_arrive
+FROM runner_orders as ro
+INNER JOIN customer_orders AS co 
+	ON ro.order_id = co.order_id 
+WHERE ro.pickup_time IS NOT NULL 
+GROUP BY 1
+ORDER BY 1;
+ 
+--3)Is there any relationship between the number of pizzas and how long the order takes to prepare?
+--3)Siparişin hazırlanma süresi ile pizza sayısı arasında bir ilişki var mı? 
+
+WITH CTE AS (
+SELECT co.order_id,
+ 	    count(co.order_id) AS pizza_sayisi,
+ 	    ro.pickup_time - co.order_time AS hazirlanma_suresi
+ FROM runner_orders as ro
+INNER JOIN customer_orders AS co 
+	ON ro.order_id = co.order_id  
+WHERE ro.cancellation IS NULL 
+GROUP BY 1, ro.pickup_time , co.order_time 
+)
+SELECT pizza_sayisi,
+	   avg(hazirlanma_suresi) ortalama_hazirlanma_suresi
+FROM CTE
+GROUP BY 1;
+
+--xxxxxxxxxxxx dakika olarak:
+WITH CTE AS (
+SELECT co.order_id,
+ 	    count(co.order_id) AS pizza_sayisi,
+ 	    date_part('min',cast(ro.pickup_time - co.order_time AS TIME)) AS hazirlanma_suresi
+FROM runner_orders as ro
+INNER JOIN customer_orders AS co 
+	ON ro.order_id = co.order_id  
+WHERE ro.cancellation IS NULL 
+GROUP BY 1, date_part('min',cast(ro.pickup_time - co.order_time AS TIME)) 
+)
+SELECT pizza_sayisi,
+	   round(avg(hazirlanma_suresi)) AS ortalama_hazirlanma_suresi
+FROM CTE
+GROUP BY 1;
+
+--4)What was the average distance travelled for each customer?
+--4)Her bir müşteri için ortalama kat edilen mesafe ne kadardır?
+ 
+ SELECT co.customer_id,
+ 	    avg(ro.distance) AS avg_distance_for_each_customer
+ FROM customer_orders co 
+ INNER JOIN runner_orders ro 
+ 	ON co.order_id = ro.order_id 
+ WHERE ro.cancellation IS NULL 
+ GROUP BY 1;
+
+--5)What was the difference between the longest and shortest delivery times for all orders?
+--5)Tüm siparişler için en uzun ve en kısa teslimat süreleri arasındaki fark nedir?
+ 
+SELECT max(duration) AS longest_delivery_time,
+	   min(duration) AS shortest_delivery_time,
+	   max(duration) - min(duration) AS difference_between_delivery_times
+FROM runner_orders ro
+WHERE cancellation IS NULL;
+
+
+
+WITH CTE AS (
+  SELECT 
+    co.order_id,
+    ro.pickup_time - co.order_time AS delivery_times -- INTERVAL olarak bırak
+  FROM customer_orders co
+  INNER JOIN runner_orders ro 
+    ON co.order_id = ro.order_id
+  WHERE ro.cancellation IS NULL
+)
+SELECT 
+  MAX(delivery_times) AS longest_delivery_time,
+  MIN(delivery_times) AS shortest_delivery_time,
+  MAX(delivery_times) - MIN(delivery_times) AS difference_between_delivery_times
+FROM CTE;
+
+--6)What was the average speed for each runner for each delivery and do you notice any trend for these values?
+--6)Her bir kuryenin her bir teslimat için ortalama hızı nedir ve bu değerlerde bir eğilim fark ediyor musunuz?
+-- yol = hız x zaman ise ortalama hız için yol / zaman hesaplanmalıdır. Burada km/saat cinsinden sonucu bulabilmek için 
+--bize dk olarak verilen verileri 60 ile çarparak saate dönüştürmeliyiz
+
+--Her bir kuryenin her bir sipariş için ortalama hızı:
+SELECT order_id,
+	   runner_id,
+	   round((avg(distance / duration) * 60)::NUMERIC ,2) AS avg_speed
+FROM runner_orders ro 
+WHERE cancellation IS NULL
+GROUP BY 1,2;
+
+--Her bir kuryenin ortalama hızı için çözüm: 
+SELECT 
+	   runner_id,
+	   round((avg(distance / duration) * 60)::NUMERIC ,2) AS avg_speed
+FROM runner_orders ro 
+WHERE cancellation IS NULL
+GROUP BY 1;
+
+--1 ve 2 numaralı koşucular hızlı, 3 numaralı koşucunun ise yavaş olduğunu görüyoruz:
+--katetmesi gereken mesafe daha fazla olan koşucular diğerlerinden daha yüksek hıza sahipti
+SELECT 
+	   runner_id,
+	   sum(distance) AS kms, 
+	   round((avg(distance / duration) * 60)::NUMERIC ,2) AS avg_speed
+FROM runner_orders ro 
+WHERE cancellation IS NULL
+GROUP BY 1;
+
+--7)What is the successful delivery percentage for each runner?
+--7)Her bir kuryenin başarılı teslimat yüzdesi nedir? 
+
+WITH CTE AS ( 
+SELECT runner_id,
+	   count(order_id) AS teslim_alinan_siparisler,
+	   sum(CASE 
+	   	WHEN cancellation IS NULL THEN 1
+	   	ELSE 0
+	   END) AS teslim_edilmis_siraris_sayisi
+FROM runner_orders ro
+GROUP BY 1
+)
+SELECT runner_id,
+	   ((100 * teslim_edilmis_siraris_sayisi) / teslim_alinan_siparisler) AS basari_yuzdesi
+FROM CTE
+ORDER BY 1;
+
+--C. Ingredient Optimisation:
+--1)What are the standard ingredients for each pizza?
+--REGEXP_SPLIT_TO_TABLE(toppings, ','):Bu fonksiyon, virgülle ayrılmış bir stringi parçalayarak her bir parçayı ayrı bir satıra koyar.
+--STRING_AGG() kullanılır. Bu fonksiyon, bir grup içerisindeki değerleri belirtilen bir ayracı kullanarak birleştirir.
+--STRING_AGG(expression, delimiter [ORDER BY expression])
+--expression: Birleştirilecek sütun veya ifade.
+--delimiter: Değerler arasına konulacak ayraç (örneğin, bir virgül ,).
+
+WITH CTE1 AS ( 
+SELECT pr.pizza_id, 
+	   pn.pizza_name,
+       REGEXP_SPLIT_TO_TABLE(toppings, ',')::integer AS topping_id
+FROM pizza_recipes pr
+INNER JOIN pizza_names pn 
+	ON pr.pizza_id = pn.pizza_id 
+),
+CTE2 AS (
+SELECT *
+FROM CTE1
+INNER JOIN pizza_toppings pt
+	ON CTE1.topping_id = pt.topping_id 
+)
+SELECT pizza_name,
+	   string_agg(topping_name, ', ') 
+FROM CTE2
+GROUP BY 1;
+
+--2)What was the most commonly added extra? 
+ 
+WITH CTE1 AS ( 
+SELECT pr.pizza_id,
+       REGEXP_SPLIT_TO_TABLE(toppings, ',')::integer AS topping_id,
+       REGEXP_SPLIT_TO_TABLE(COALESCE(co.extras, '0'), ',')::integer AS add_extras
+FROM pizza_recipes pr
+INNER JOIN customer_orders co 
+	ON pr.pizza_id = co.pizza_id
+),
+CTE2 AS (
+SELECT CTE1.pizza_id,
+       CTE1.add_extras AS topping_id,
+       pt.topping_name
+FROM CTE1
+INNER JOIN pizza_toppings pt
+	ON CTE1.add_extras = pt.topping_id --bu şekilde tablolar birleştirilerek onların kesişimlerini almış olduk. 1, 4 ve 5 nolular
+)
+SELECT topping_name,
+       COUNT(*) AS extra_count	   
+FROM CTE2
+GROUP BY 1
+ORDER BY extra_count DESC
+
+--Eğer extras sütunu boş string ('') veya NULL ise:
+--NULLIF: Boş stringleri NULL yapar.
+--COALESCE: Eğer değer NULL ise, '0' atanır. Böylece hata oluşmaz.
+--Bu değerler de virgüle göre ayrıştırılır ve add_extras olarak saklanır.
+---xxxxxxxxxxxxxxxxxxxxxxxxxx
+
+
+WITH CTE1 AS (
+  SELECT 
+    pr.pizza_id,
+    REGEXP_SPLIT_TO_TABLE(pr.toppings, ',')::integer AS topping_id,
+    REGEXP_SPLIT_TO_TABLE(COALESCE(NULLIF(co.extras, ''), '0'), ',')::integer AS add_extras
+  FROM 
+    pizza_recipes pr
+  INNER JOIN 
+    customer_orders co 
+    ON pr.pizza_id = co.pizza_id 
+),
+CTE2 AS (
+  SELECT 
+    CTE1.pizza_id,
+    CTE1.add_extras AS topping_id,
+    pt.topping_name
+  FROM 
+    CTE1
+  INNER JOIN 
+    pizza_toppings pt
+    ON CTE1.add_extras = pt.topping_id
+)
+SELECT 
+  topping_name,
+  COUNT(*) AS extra_count
+FROM 
+  CTE2
+GROUP BY 
+  topping_name
+ORDER BY 
+  extra_count DESC;
+
+
+--3)What was the most common exclusion? HATALI
+ 
+WITH CTE1 AS ( 
+SELECT pr.pizza_id,
+       REGEXP_SPLIT_TO_TABLE(toppings, ',')::integer AS topping_id,
+       REGEXP_SPLIT_TO_TABLE(COALESCE(co.exclusions, '0'), ',')::integer AS add_exclusions
+FROM pizza_recipes pr
+INNER JOIN customer_orders co 
+	ON pr.pizza_id = co.pizza_id
+),
+CTE2 AS (
+SELECT CTE1.pizza_id,
+       CTE1.add_exclusions AS topping_id,
+       pt.topping_name
+FROM CTE1
+INNER JOIN pizza_toppings pt
+	ON CTE1.add_exclusions = pt.topping_id --bu şekilde tablolar birleştirilerek onların kesişimlerini almış olduk. 2, 4 ve 6 nolular
+)
+SELECT topping_name,
+       COUNT(*) AS exclusions_count	   
+FROM CTE2
+GROUP BY 1
+ORDER BY exclusions_count DESC
+
+ 
+--4)Generate an order item for each record in the customers_orders table in the format of one of the following:
+--Meat Lovers
+--Meat Lovers - Exclude Beef
+--Meat Lovers - Extra Bacon
+--Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers
+ 
+SELECT co.order_id,
+	   co.pizza_id,
+	   pn.pizza_name,
+	   co.exclusions,
+	   co.extras,
+	   CASE 
+	   	WHEN co.exclusions IS NULL AND co.extras IS NULL THEN 'Meat Lovers'
+	   	WHEN co.exclusions = '3' THEN 'Meat Lovers - Exclude Beef'
+	   	WHEN co.extras = '1' THEN 'Meat Lovers - Extra Bacon'
+	   	WHEN co.exclusions = '1, 4' AND co.extras = '6, 9' THEN 'Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers'
+	   	ELSE 'Vegetarian'
+	   END AS order_item	   
+FROM customer_orders co 
+INNER JOIN pizza_names pn 
+	ON co.pizza_id = pn.pizza_id 
+ 
+--5)Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and 
+--add a 2x in front of any relevant ingredients
+--For example: "Meat Lovers: 2xBacon, Beef, ... , Salami"
+ 
+ 
+ 
+--6)What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
+ 
+ 
+ 
+--D. Pricing and Ratings:
+--1)If a Meat Lovers pizza costs $12 and Vegetarian costs $10 and there were no charges for changes - 
+--how much money has Pizza Runner made so far if there are no delivery fees?
+ 
+ 
+ 
+--2)What if there was an additional $1 charge for any pizza extras?
+--Add cheese is $1 extra
+ 
+ 
+ 
+--3)The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, 
+--how would you design an additional table for this new dataset - generate a schema for this new table and 
+--insert your own data for ratings for each successful customer order between 1 to 5.
+ 
+ 
+ 
+--4)Using your newly generated table - can you join all of the information together to form a table which has the following information for 
+--successful deliveries?
+---customer_id
+---order_id
+---runner_id
+---rating
+---order_time
+---pickup_time
+---Time between order and pickup
+---Delivery duration
+--Average speed
+---Total number of pizzas
+ 
+ 
+ 
+--5)If a Meat Lovers pizza was $12 and Vegetarian $10 fixed prices with no cost for extras and each runner is paid $0.30 per kilometre traveled - 
+--how much money does Pizza Runner have left over after these deliveries?
+ 
+ 
+ 
+--E. Bonus Questions:
+--1)If Danny wants to expand his range of pizzas - how would this impact the existing data design?
+--Write an INSERT statement to demonstrate what would happen if a new Supreme pizza with all the toppings was added to the Pizza Runner menu?
+ 
+ 
