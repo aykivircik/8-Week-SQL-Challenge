@@ -1,0 +1,342 @@
+CREATE DATABASE dannys_diner;
+
+CREATE TABLE dannys_diner_sales (
+	customer_id varchar(1),
+	order_date date,
+	product_id integer
+	);
+	
+INSERT INTO dannys_diner_sales (customer_id, order_date, product_id)
+VALUES ('A','2021-01-01',1),
+	   ('A','2021-01-01',2),
+	   ('A','2021-01-07',2),
+	   ('A','2021-01-10',3),
+	   ('A','2021-01-11',3),
+	   ('A','2021-01-11',3),
+	   ('B','2021-01-01',2),
+	   ('B','2021-01-02',2),
+	   ('B','2021-01-04',1),
+	   ('B','2021-01-11',1),
+	   ('B','2021-01-16',3),
+	   ('B','2021-02-01',3),
+	   ('C','2021-01-01',3),
+	   ('C','2021-01-01',3),
+	   ('C','2021-01-07',3);
+
+CREATE TABLE dannys_diner_members (
+	customer_id varchar(1),
+	join_date timestamp
+	);
+
+INSERT INTO dannys_diner_members (customer_id, join_date)
+VALUES ('A','2021-01-07'),
+	   ('B','2021-01-09');
+
+CREATE TABLE dannys_diner_menu (
+	product_id integer,
+	product_name varchar(5),
+	price integer
+	);
+	
+INSERT INTO dannys_diner_menu (product_id, product_name, price)
+VALUES (1,'Sushi',10),
+	   (2,'Curry',15),
+	   (3,'Ramen',12);
+
+--QUESTİONS:
+--Aşağıdaki vaka çalışması sorularının her biri tek bir SQL ifadesi kullanılarak cevaplanabilir:
+--1)What is the total amount each customer spent at the restaurant?
+--1)Restoranda her müşterinin harcadığı toplam miktar nedir?
+	  
+SELECT dannys_diner_sales.customer_id,
+	   sum(dannys_diner_menu.price)
+FROM dannys_diner_sales
+INNER JOIN dannys_diner_menu ON dannys_diner_menu.product_id = dannys_diner_sales.product_id
+GROUP BY dannys_diner_sales.customer_id
+ORDER BY dannys_diner_sales.customer_id;
+
+--2)How many days has each customer visited the restaurant?
+--2)Her müşteri restoranı kaç gün ziyaret etti?
+
+SELECT customer_id,
+	   count(DISTINCT(order_date)) AS unique_visit_days
+FROM dannys_diner_sales
+GROUP BY customer_id;
+
+--3)What was the first item from the menu purchased by each customer?
+--3)Her müşterinin menüden satın aldığı ilk ürün neydi?
+--Çözüm1:
+SELECT s.customer_id, MIN(order_date), m.product_name
+FROM dannys_diner_sales as s
+INNER JOIN dannys_diner_menu as m
+	ON s.product_id = m.product_id
+GROUP BY s.customer_id, m.product_name,s.order_date
+ORDER BY s.order_date ASC
+LIMIT 4
+
+--Çözüm2:
+--1. Aşama:
+SELECT *
+FROM dannys_diner_sales as s
+INNER JOIN dannys_diner_menu as m
+	ON s.product_id = m.product_id
+ORDER BY s.customer_id ,s.order_date 
+
+--2. Aşama: Her bir müşterinin aldığı ürün için sıra numarası vermeliyiz
+SELECT customer_id,
+	   order_date,
+	   product_name,
+	   ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date) 
+FROM dannys_diner_sales as s
+INNER JOIN dannys_diner_menu as m
+	ON s.product_id = m.product_id
+ORDER BY s.customer_id ,s.order_date 
+
+--3. Aşama: row_number(), rank(), dense_rank() farklarını gördük
+SELECT customer_id,
+	   order_date,
+	   product_name,
+	   ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date),
+	   RANK() OVER (PARTITION BY customer_id ORDER BY order_date),
+	   DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY order_date) 
+FROM dannys_diner_sales as s
+INNER JOIN dannys_diner_menu as m
+	ON s.product_id = m.product_id
+ORDER BY s.customer_id ,s.order_date 
+
+--4.Aşama:
+WITH CTE AS (
+SELECT customer_id,
+	   order_date,
+	   product_name,
+	   DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY order_date) AS first_purchased_item
+FROM dannys_diner_sales as s
+INNER JOIN dannys_diner_menu as m
+	ON s.product_id = m.product_id
+)
+SELECT customer_id, 
+	   product_name
+FROM CTE
+WHERE first_purchased_item = 1;
+
+--5. Aşama: ramen tekrarını düzelttik
+WITH CTE AS (
+SELECT customer_id,
+	   order_date,
+	   product_name,
+	   DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY order_date) AS first_purchased_item
+FROM dannys_diner_sales as s
+INNER JOIN dannys_diner_menu as m
+	ON s.product_id = m.product_id
+)
+SELECT DISTINCT customer_id, 
+	   product_name
+FROM CTE
+WHERE first_purchased_item = 1;
+
+--4)What is the most purchased item on the menu and how many times was it purchased by all customers?
+--4)Menüde en çok satın alınan ürün hangisidir ve tüm müşteriler tarafından kaç kez satın alınmıştır?
+
+SELECT ddm.product_name,
+	   count(dds.product_id) AS most_purchased_item
+FROM dannys_diner_sales AS dds
+INNER JOIN dannys_diner_menu AS ddm 
+	ON dds.product_id = ddm.product_id 
+GROUP BY product_name
+ORDER BY most_purchased_item DESC 
+LIMIT 1;
+
+--5)Which item was the most popular for each customer?
+--5)Her bir müşterinin en popüler ürünü hangisidir?
+
+WITH CTE AS (
+	   SELECT customer_id,
+	          product_name,
+	          count(dds.product_id) AS total_purchased,
+	          DENSE_RANK() OVER (PARTITION BY customer_id ORDER BY count(dds.product_id) DESC) AS d_r
+	   FROM dannys_diner_sales AS dds
+       INNER JOIN dannys_diner_menu AS ddm
+       	ON dds.product_id = ddm.product_id
+       GROUP BY 1, 2
+       ORDER BY 1, 3 DESC 
+)
+SELECT customer_id,
+	   product_name,
+	   total_purchased
+FROM CTE
+WHERE d_r = 1;
+
+--6)Which item was purchased first by the customer after they became a member?
+--6)Müşteri üye olduktan sonra ilk olarak hangi ürünü satın aldı?
+
+WITH CTE AS (
+	SELECT sales.customer_id,
+	   	   product_name,
+	       order_date,
+	       join_date,
+	       DENSE_RANK() OVER (PARTITION BY sales.customer_id ORDER BY order_date) AS dr
+	FROM dannys_diner_sales AS sales
+	INNER JOIN dannys_diner_menu as menu
+		ON sales.product_id = menu.product_id
+	INNER JOIN dannys_diner_members as members 
+		ON sales.customer_id = members.customer_id
+	WHERE order_date >= join_date 
+	ORDER BY sales.customer_id
+)
+SELECT customer_id,
+	   product_name,
+	   order_date,
+	   join_date
+FROM CTE
+WHERE dr = 1;
+
+--7)Which item was purchased just before the customer became a member?
+--7)Müşteri üye olmadan hemen önce hangi ürünü satın almıştır?
+
+WITH CTE AS (
+SELECT sales.customer_id,
+	   menu.product_name,
+	   order_date,
+	   join_date,
+	   DENSE_RANK() OVER (PARTITION BY sales.customer_id ORDER BY sales.order_date DESC) AS dr
+FROM dannys_diner_sales AS sales
+FULL OUTER JOIN dannys_diner_menu as menu
+	ON sales.product_id = menu.product_id
+FULL OUTER JOIN dannys_diner_members as members 
+	ON sales.customer_id = members.customer_id
+WHERE sales.order_date < members.join_date 
+ORDER BY sales.customer_id 
+)
+SELECT *
+FROM CTE
+WHERE dr = 1;
+
+--8)What is the total items and amount spent for each member before they became a member?
+--8)Üye olmadan önce her bir üyenin yapmış olduğu toplam harcama tutarı ve adedi nedir?
+
+SELECT sales.customer_id,
+	   sum(price),
+	   count(order_date) 
+FROM dannys_diner_sales AS sales
+FULL OUTER JOIN dannys_diner_menu as menu
+	ON sales.product_id = menu.product_id
+FULL OUTER JOIN dannys_diner_members as members 
+	ON sales.customer_id = members.customer_id 
+WHERE sales.order_date < members.join_date
+GROUP BY sales.customer_id
+ORDER BY 1;
+
+--9)If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?
+--9)Harcanan her 1 dolar 10 puana eşitse ve suşinin 2 kat puan çarpanı varsa, her müşteri kaç puan kazanır?
+
+WITH CTE AS (
+SELECT sales.customer_id,
+	   menu.product_name,
+	   menu.price,
+	   CASE 
+	   	WHEN menu.product_name = 'Sushi' THEN price * 20
+	   	ELSE price * 10
+	   END AS customer_points
+FROM dannys_diner_sales AS sales
+INNER JOIN dannys_diner_menu as menu
+	ON sales.product_id = menu.product_id
+)
+SELECT customer_id,
+	   sum(customer_points) AS total_customer_points
+FROM CTE
+GROUP BY customer_id
+ORDER BY 1;
+
+--10)In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi 
+-- how many points do customer A and B have at the end of January?
+--10)Müşteri programa katıldıktan sonraki ilk hafta (katılım tarihi dahil) 
+--sadece suşide değil tüm ürünlerde 2 kat puan kazanır - Ocak ayı sonunda müşteri A ve B'nin kaç puanı vardır?
+
+WITH CTE1 AS (
+SELECT sales.customer_id,
+	   menu.product_name,
+	   sales.order_date,
+	   menu.price,
+	   CASE 
+	   	WHEN menu.product_name = 'Sushi' THEN price * 20
+	   	ELSE price * 10
+	   END AS customer_points_before
+FROM dannys_diner_sales AS sales
+FULL OUTER JOIN dannys_diner_menu as menu
+	ON sales.product_id = menu.product_id
+FULL OUTER JOIN dannys_diner_members as members 
+	ON sales.customer_id = members.customer_id 
+WHERE sales.order_date < members.join_date --üye olmadan önceki puanlar
+UNION ALL
+SELECT sales.customer_id,
+	   menu.product_name,
+	   sales.order_date,
+	   menu.price,
+	   CASE 
+	   	WHEN sales.order_date BETWEEN join_date AND join_date + INTERVAL '6 days' THEN menu.price * 20 --DATA TYPE timestamp olduğu için gün eklerken
+	   	WHEN menu.product_name = 'Sushi' THEN price * 20                                               --INTERVAL kullandık
+	   	ELSE price * 10
+	   END	   
+FROM dannys_diner_sales AS sales
+FULL OUTER JOIN dannys_diner_menu as menu
+	ON sales.product_id = menu.product_id
+FULL OUTER JOIN dannys_diner_members as members 
+	ON sales.customer_id = members.customer_id 
+WHERE sales.order_date >= members.join_date --üye olduktan sonraki puanlar
+)
+SELECT customer_id,
+	   sum(customer_points_before) AS total_customer_points
+FROM CTE1
+WHERE order_date <= '2021-01-31'
+GROUP BY 1
+ORDER BY 1;
+
+--xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+--Bonus Questions:
+--1)Join All The Things
+--The following questions are related creating basic data tables that Danny and his team can use to quickly derive insights without 
+--needing to join the underlying tables using SQL.
+--Recreate the following table output using the available data: customer_id, order_date, product_name, price, member
+
+SELECT sales.customer_id,
+	   sales.order_date,
+	   menu.product_name,
+	   menu.price,
+	CASE 
+		WHEN sales.order_date >= members.join_date AND members.join_date IS NOT NULL THEN 'Y'
+		ELSE 'N' 
+	END	AS member
+FROM dannys_diner_sales AS sales
+FULL OUTER JOIN dannys_diner_menu as menu
+	ON sales.product_id = menu.product_id
+FULL OUTER JOIN dannys_diner_members as members 
+	ON sales.customer_id = members.customer_id
+ORDER BY 1,2,3;
+
+--2)Rank All The Things
+--Danny also requires further information about the ranking of customer products, 
+--but he purposely does not need the ranking for non-member purchases 
+--so he expects null ranking values for the records when customers are not yet part of the loyalty program.
+
+WITH CTE as(
+SELECT sales.customer_id,
+	   sales.order_date,
+	   menu.product_name,
+	   menu.price,
+	CASE 
+		WHEN sales.order_date >= members.join_date AND members.join_date IS NOT NULL THEN 'Y'
+		ELSE 'N' 
+	END	AS member
+FROM dannys_diner_sales AS sales
+FULL OUTER JOIN dannys_diner_menu as menu
+	ON sales.product_id = menu.product_id
+FULL OUTER JOIN dannys_diner_members as members 
+	ON sales.customer_id = members.customer_id
+ORDER BY 1,2,3
+)
+SELECT *,
+	   CASE 
+	   	WHEN member = 'N' THEN NULL 
+	   	ELSE rank() OVER (PARTITION BY customer_id, member ORDER BY order_date)
+	   END AS ranking
+FROM CTE;
